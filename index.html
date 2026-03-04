@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>USB Intrusion Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .glow-border {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .device-card {
+            transition: all 0.3s ease;
+        }
+
+        .device-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .status-badge-allowed {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge-blocked {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge-unknown {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-action {
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+            transform: scale(1.05);
+        }
+
+        .filter-btn-active {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .header-glow {
+            text-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+            }
+        }
+
+        .status-indicator {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-8 font-sans text-slate-100">
+
+    <header
+        class="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between border-b border-slate-700 pb-6">
+        <h1 class="text-4xl md:text-5xl font-extrabold header-glow mb-3 md:mb-0">
+            🛡️ USB Intrusion Detector
+        </h1>
+        <div class="glass-card px-4 py-2 rounded-xl status-indicator">
+            <div class="text-sm text-slate-300">
+                Status: <span class="font-semibold text-emerald-400">● Active</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+        <!-- Sidebar -->
+        <aside class="col-span-1 flex flex-col space-y-6">
+
+            <!-- Filters -->
+            <section class="glass-card p-6 rounded-2xl glow-border">
+                <h2 class="text-xl font-semibold mb-4 border-b border-slate-600 pb-2 text-blue-400">🔍 Filters</h2>
+                <div class="flex gap-3 mb-5 flex-wrap">
+                    <button data-filter="all"
+                        class="filter-btn filter-btn-active px-4 py-2 rounded-xl text-white font-medium shadow-md">All</button>
+                    <button data-filter="whitelisted"
+                        class="filter-btn px-4 py-2 rounded-xl bg-slate-700 text-slate-300 font-medium shadow hover:bg-slate-600">Whitelisted</button>
+                    <button data-filter="unknown"
+                        class="filter-btn px-4 py-2 rounded-xl bg-slate-700 text-slate-300 font-medium shadow hover:bg-slate-600">Unknown</button>
+                    <button data-filter="blocked"
+                        class="filter-btn px-4 py-2 rounded-xl bg-slate-700 text-slate-300 font-medium shadow hover:bg-slate-600">Blocked</button>
+                </div>
+                <input id="searchBox" placeholder="Search VID / PID / Serial..."
+                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500" />
+            </section>
+
+            <!-- Legend -->
+            <section class="glass-card p-6 rounded-2xl">
+                <div class="text-sm font-semibold mb-3 text-blue-400 text-center">📊 Legend</div>
+                <div class="flex flex-col gap-2">
+                    <div class="status-badge-allowed px-4 py-2 rounded-xl text-white text-xs font-semibold text-center">
+                        ✓ Allowed</div>
+                    <div class="status-badge-blocked px-4 py-2 rounded-xl text-white text-xs font-semibold text-center">
+                        ✕ Blocked</div>
+                    <div class="status-badge-unknown px-4 py-2 rounded-xl text-white text-xs font-semibold text-center">
+                        ? Unknown</div>
+                </div>
+            </section>
+
+            <!-- Info Panel -->
+            <section class="glass-card p-6 rounded-2xl">
+                <div class="text-xs text-slate-400 leading-relaxed">
+                    <p class="mb-2">💡 <strong class="text-slate-300">Tip:</strong> Blocked devices are permanently
+                        denied via Windows Registry.</p>
+                    <p>🔄 Auto-refresh: <span class="text-emerald-400">Every 3s</span></p>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Devices -->
+        <section class="col-span-2 flex flex-col gap-6">
+            <div class="glass-card p-6 rounded-2xl glow-border flex justify-between border border-slate-700">
+                <h2 class="text-2xl font-semibold text-blue-400">💾 USB Devices</h2>
+                <div class="text-sm text-slate-300">
+                    Total: <span id="deviceCount" class="font-semibold text-blue-400 text-lg">0</span>
+                </div>
+            </div>
+            <div id="deviceList" class="grid grid-cols-1 gap-5"></div>
+        </section>
+
+    </main>
+
+    <!-- Modal -->
+    <div id="confirmModal"
+        class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div
+            class="glass-card rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-600 glow-border">
+            <h3 id="modalTitle" class="text-2xl font-semibold mb-4 text-blue-400"></h3>
+            <p id="modalMessage" class="text-slate-300 mb-8"></p>
+            <div id="loadingSpinner" class="hidden mb-6">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500">
+                </div>
+                <p class="text-slate-400 text-sm mt-3">Processing... This may take a few seconds</p>
+            </div>
+            <div id="modalButtons" class="flex justify-center gap-6">
+                <button id="btnCancel"
+                    class="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold text-slate-200 transition">Cancel</button>
+                <button id="btnConfirm"
+                    class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold hover:from-blue-500 hover:to-blue-400 transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = "all";
+        let searchQuery = "";
+        let pendingAction = null;
+        let allDevices = [];   // cache for filtering without re-fetching
+
+        const deviceList = document.getElementById("deviceList");
+        const deviceCount = document.getElementById("deviceCount");
+        const searchBox = document.getElementById("searchBox");
+        const confirmModal = document.getElementById("confirmModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalMessage = document.getElementById("modalMessage");
+        const btnConfirm = document.getElementById("btnConfirm");
+        const btnCancel = document.getElementById("btnCancel");
+        const loadingSpinner = document.getElementById("loadingSpinner");
+        const modalButtons = document.getElementById("modalButtons");
+
+        async function loadDevices() {
+            try {
+                const res = await fetch("/devices");
+                allDevices = await res.json();
+                renderDevices(allDevices);
+            } catch (err) {
+                console.error("Failed to load devices:", err);
+            }
+        }
+
+        function renderDevices(devices) {
+            deviceList.innerHTML = "";
+
+            const filtered = devices.filter(d => {
+                if (currentFilter !== "all" && d.device_type !== currentFilter) return false;
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    return [d.usb_vid, d.usb_pid, d.usb_serial]
+                        .some(v => (v || "").toLowerCase().includes(q));
+                }
+                return true;
+            });
+
+            deviceCount.textContent = filtered.length;
+
+            if (!filtered.length) {
+                deviceList.innerHTML = `<div class="text-center text-slate-500 italic py-12 glass-card rounded-2xl">📭 No devices found</div>`;
+                return;
+            }
+
+            filtered.forEach(dev => {
+                const card = document.createElement("div");
+                card.className = "glass-card device-card rounded-2xl p-6 shadow-lg flex justify-between border border-slate-700";
+
+                const statusClass = dev.device_type === "whitelisted"
+                    ? "status-badge-allowed"
+                    : dev.device_type === "blocked"
+                        ? "status-badge-blocked"
+                        : "status-badge-unknown";
+
+                const statusIcon = dev.device_type === "whitelisted" ? "✓"
+                    : dev.device_type === "blocked" ? "✕" : "?";
+
+                const threatClass = dev.threat_level === "high"
+                    ? "bg-red-700 text-red-100"
+                    : dev.threat_level === "low"
+                        ? "bg-emerald-700 text-emerald-100"
+                        : "bg-amber-700 text-amber-100";
+
+                const threatIcon = dev.threat_level === "high" ? "🔴"
+                    : dev.threat_level === "low" ? "🟢" : "🟡";
+
+                // ✅ FIX: dev.id wrapped in single quotes so JS receives a string
+                card.innerHTML = `
+                    <div class="flex gap-6 items-start flex-1">
+                        <div class="bg-gradient-to-br from-slate-700 to-slate-800 px-5 py-3 rounded-xl text-xs font-mono shrink-0">
+                            <div class="text-blue-400 font-semibold">VID: <span class="text-slate-100">${dev.usb_vid}</span></div>
+                            <div class="text-blue-400 font-semibold">PID: <span class="text-slate-100">${dev.usb_pid}</span></div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="font-semibold text-lg text-slate-100">USB Device</div>
+                            <div class="text-sm text-slate-400">Serial: ${dev.usb_serial}</div>
+                            <div class="flex gap-2 items-center mt-1 flex-wrap">
+                                <span class="${threatClass} px-3 py-0.5 rounded-lg text-xs font-semibold">
+                                    ${threatIcon} Threat: ${dev.threat_level}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-center shrink-0">
+                        <span class="${statusClass} px-4 py-2 rounded-xl text-sm font-semibold text-white">
+                            ${statusIcon} ${dev.device_type}
+                        </span>
+                        <button onclick="confirmAction('${dev.id}', 'allow')"
+                            class="btn-action px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl text-sm font-medium shadow-lg">
+                            Allow
+                        </button>
+                        <button onclick="confirmAction('${dev.id}', 'block')"
+                            class="btn-action px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white rounded-xl text-sm font-medium shadow-lg">
+                            Block
+                        </button>
+                        <button onclick="confirmAction('${dev.id}', 'remove')"
+                            class="btn-action px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-sm font-medium shadow">
+                            Remove
+                        </button>
+                    </div>
+                `;
+                deviceList.appendChild(card);
+            });
+        }
+
+        function confirmAction(id, action) {
+            pendingAction = { id, action };
+            modalTitle.textContent = `${action.toUpperCase()} Device`;
+            modalMessage.textContent = `Are you sure you want to ${action} this device?`;
+
+            loadingSpinner.classList.add("hidden");
+            modalButtons.classList.remove("hidden");
+            btnConfirm.disabled = false;
+            btnCancel.disabled = false;
+
+            confirmModal.classList.remove("hidden");
+            confirmModal.classList.add("flex");
+        }
+
+        btnCancel.onclick = () => {
+            pendingAction = null;
+            confirmModal.classList.add("hidden");
+            confirmModal.classList.remove("flex");
+        };
+
+        btnConfirm.onclick = async () => {
+            if (!pendingAction) return;
+            const { id, action } = pendingAction;
+
+            modalButtons.classList.add("hidden");
+            loadingSpinner.classList.remove("hidden");
+
+            try {
+                const res = await fetch(`/device/${id}/action`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "Unknown error");
+                }
+
+                confirmModal.classList.add("hidden");
+                confirmModal.classList.remove("flex");
+                await loadDevices();
+            } catch (error) {
+                console.error("Action failed:", error);
+                alert(`Operation failed: ${error.message}`);
+                loadingSpinner.classList.add("hidden");
+                modalButtons.classList.remove("hidden");
+            } finally {
+                pendingAction = null;
+            }
+        };
+
+        // Filters
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll(".filter-btn").forEach(b => {
+                    b.classList.remove("filter-btn-active");
+                    b.classList.add("bg-slate-700", "text-slate-300");
+                });
+                btn.classList.add("filter-btn-active");
+                btn.classList.remove("bg-slate-700", "text-slate-300");
+                currentFilter = btn.dataset.filter;
+                renderDevices(allDevices);  // filter cached data, no extra fetch
+            };
+        });
+
+        // Search
+        searchBox.oninput = e => {
+            searchQuery = e.target.value;
+            renderDevices(allDevices);  // filter cached data, no extra fetch
+        };
+
+        // Auto-refresh every 3 seconds
+        setInterval(loadDevices, 3000);
+
+        window.onload = loadDevices;
+    </script>
+
+</body>
+
+</html>
